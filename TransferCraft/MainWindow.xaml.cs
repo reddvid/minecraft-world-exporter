@@ -26,18 +26,38 @@ namespace TransferCraft
     /// </summary>
     public partial class MainWindow : Window
     {
-        string DATA_FOLDER = Environment.GetEnvironmentVariable("AppData") + @"\.minecraft\saves\Drmy\";
+        string MC_SAVES_FOLDER = Environment.GetEnvironmentVariable("AppData") + @"\.minecraft\saves\";
         string ONEDRIVE_FOLDER = Environment.GetEnvironmentVariable("OneDrive") + @"\TransferCraft\";
         string TEMP_FOLDER = Environment.GetEnvironmentVariable("Temp");
 
         bool isBusy;
         string backupFileName;
         string tempFileName;
+        string selectedSaveName;
         ZipOutputStream zipStream;
 
         public MainWindow()
         {
             InitializeComponent();
+
+            Loaded += MainWindow_Loaded;
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            BackupBtn.IsEnabled = false;
+
+            // Check Minecraft saves directory
+            string[] folders = Directory.GetDirectories(MC_SAVES_FOLDER);
+            DirList.Items.Clear();
+
+            if (folders.Length != 0)
+            {
+                foreach (var folder in folders)
+                {
+                    DirList.Items.Add(folder.Replace(MC_SAVES_FOLDER, string.Empty));
+                }
+            }
         }
 
         protected override void OnClosing(CancelEventArgs e)
@@ -60,7 +80,7 @@ namespace TransferCraft
                     finally
                     {
                         File.Delete(tempFileName);
-                        isBusy = false;
+                        pBar.IsIndeterminate = isBusy = false;
                         e.Cancel = false;
                     }
                 }
@@ -71,25 +91,27 @@ namespace TransferCraft
 
         private async Task ScanFiles(string filename)
         {
-            tempFileName = $"{ TEMP_FOLDER }\\" + filename.Substring(filename.IndexOf("Drmy_"), filename.Length - filename.IndexOf("Drmy_"));
+            tempFileName = $"{ TEMP_FOLDER }\\" + filename.Substring(filename.IndexOf(selectedSaveName.Trim() + "_"), filename.Length - filename.IndexOf(selectedSaveName.Trim() + "_"));
 
             var fsOut = File.Create(tempFileName);
             pBar.IsIndeterminate = isBusy = true;
 
             zipStream = new ZipOutputStream(fsOut);
             zipStream.SetLevel(5); //0-9, 9 being the highest level of compression
-            int folderOffset = DATA_FOLDER.Length + (DATA_FOLDER.EndsWith("\\") ? 0 : 1);
+            int folderOffset = (MC_SAVES_FOLDER + selectedSaveName).Length + ((MC_SAVES_FOLDER + selectedSaveName).EndsWith("\\") ? 0 : 1);
 
-            await Task.Run(() => CompressFolder(DATA_FOLDER, zipStream, folderOffset));
+            await Task.Run(() => CompressFolder((MC_SAVES_FOLDER + selectedSaveName), zipStream, folderOffset));
 
             zipStream.IsStreamOwner = true; // Makes the Close also Close the underlying stream
             zipStream?.Close();
 
             pBar.IsIndeterminate = isBusy = false;
 
-            File.Move(tempFileName, filename);
+            if (File.Exists(tempFileName)) File.Move(tempFileName, filename);
 
             MessageBox.Show("Export complete.");
+
+            BackupBtn.Content = "Start Backup";
         }
 
         private void CompressFolder(string DATA_FOLDER, ZipOutputStream zipStream, int folderOffset)
@@ -102,7 +124,7 @@ namespace TransferCraft
                 {
                     FileInfo fi = new FileInfo(filename);
 
-                    string entryName = @"\Drmy\" + filename.Substring(folderOffset); // Makes the name in zip based on the folder
+                    string entryName = @"\" + selectedSaveName.Trim() + "\\" + filename.Substring(folderOffset); // Makes the name in zip based on the folder
                     entryName = ZipEntry.CleanName(entryName); // Removes drive from name and fixes slash direction
                     ZipEntry newEntry = new ZipEntry(entryName);
                     newEntry.DateTime = fi.LastWriteTime; // Note the zip format stores 2 second granularity
@@ -146,34 +168,66 @@ namespace TransferCraft
 
         private async void Backup_Click(object sender, RoutedEventArgs e)
         {
+            BackupBtn.Content = "Stop";
+
             if (isBusy)
-            {
-                MessageBox.Show("Still compressing");
-                return;
-            }
+            {               
+                var result = MessageBox.Show("Are you sure you want to cancel the current backup?\nAny unfinished backups may be corrupted or incomplete.", "Stop", MessageBoxButton.YesNo);
 
-            // Scan folder
-            if (Directory.Exists(DATA_FOLDER))
-            {
-                string fileNameInitial = $"{ ONEDRIVE_FOLDER }\\Drmy_{ Environment.MachineName }_{ DateTime.Now.ToString("MMddyy") }.zip";
-                backupFileName = fileNameInitial;
-                int count = 1;
-
-                while (File.Exists(backupFileName))
-                {
-                    backupFileName = GenerateFileName(fileNameInitial, count++);
-                }
-
-                if (Directory.Exists(ONEDRIVE_FOLDER))
-                {
-                    await ScanFiles(backupFileName);
-                }
+                if (result == MessageBoxResult.No) return;
                 else
                 {
-                    Directory.CreateDirectory(ONEDRIVE_FOLDER);
-                    await ScanFiles(backupFileName);
+                    try
+                    {
+                        zipStream?.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine(ex.Message);
+                    }
+                    finally
+                    {
+                        File.Delete(tempFileName);
+                        pBar.IsIndeterminate = isBusy = false;
+                        BackupBtn.Content = "Start Backup";
+                    }
                 }
             }
+            else
+            {
+                // Scan folder
+                string path = MC_SAVES_FOLDER + selectedSaveName;
+                if (Directory.Exists(path.Trim()))
+                {
+                    string fileNameInitial = $"{ ONEDRIVE_FOLDER }\\{ selectedSaveName }_{ Environment.MachineName }_{ DateTime.Now:MMddyy}.zip";
+                    backupFileName = fileNameInitial;
+                    int count = 1;
+
+                    while (File.Exists(backupFileName))
+                    {
+                        backupFileName = GenerateFileName(fileNameInitial, count++);
+                    }
+
+                    try
+                    {
+                        if (Directory.Exists(ONEDRIVE_FOLDER))
+                        {
+                            await ScanFiles(backupFileName);
+                        }
+                        else
+                        {
+                            Directory.CreateDirectory(ONEDRIVE_FOLDER);
+                            await ScanFiles(backupFileName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine(ex.Message);
+                    }
+                }
+            }
+
+          
         }
 
         private void OpenDrive_Click(object sender, RoutedEventArgs e)
@@ -186,6 +240,15 @@ namespace TransferCraft
         {
             var d = Environment.GetEnvironmentVariable("AppData") + @"\.minecraft\saves\";
             Process.Start("explorer.exe", d);
+        }
+
+        private void DirList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace((string)e.AddedItems[0]))
+            {
+                selectedSaveName = e.AddedItems[0].ToString();
+                BackupBtn.IsEnabled = true;
+            }
         }
     }
 }
