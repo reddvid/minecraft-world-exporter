@@ -60,6 +60,10 @@ namespace TransferCraft
                     DirList.Items.Add(folder.Replace(MC_SAVES_FOLDER, string.Empty));
                 }
             }
+            else
+            {
+                // TODO: Prompt for missing Minecraft folder or game, close the app
+            }
         }
 
         protected override void OnClosing(CancelEventArgs e)
@@ -209,10 +213,10 @@ namespace TransferCraft
                     result.DialogResult = true;
                     result.Close();
                 };
-                result.ButtonRightClick += (s, o) => 
+                result.ButtonRightClick += (s, o) =>
                 {
                     result.DialogResult = false;
-                    result.Close(); 
+                    result.Close();
                 };
 
                 var res = result.ShowDialog();
@@ -272,7 +276,7 @@ namespace TransferCraft
 
 
         }
-        private void OpenDrive_Click(object sender, RoutedEventArgs e)
+        private  void OpenDrive_Click(object sender, RoutedEventArgs e)
         {
             var d = Environment.GetEnvironmentVariable("OneDrive") + @"\TransferCraft\";
             Process.Start("explorer.exe", d);
