@@ -17,6 +17,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Wpf.Ui.Controls;
+using MessageBox = Wpf.Ui.Controls.MessageBox;
 using Path = System.IO.Path;
 
 namespace TransferCraft
@@ -24,7 +26,7 @@ namespace TransferCraft
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow
     {
         string MC_SAVES_FOLDER = Environment.GetEnvironmentVariable("AppData") + @"\.minecraft\saves\";
         string ONEDRIVE_FOLDER = Environment.GetEnvironmentVariable("OneDrive") + @"\TransferCraft\";
@@ -64,9 +66,29 @@ namespace TransferCraft
         {
             if (isBusy)
             {
-                var result = MessageBox.Show("Backup still in progress. Are you sure you want to quit?\nAny unfinished backups may be corrupted or incomplete.", "Quit", MessageBoxButton.YesNo);
+                var result = new Wpf.Ui.Controls.MessageBox
+                {
+                    Title = "Close app",
+                    Content = "Backup still in progress. Are you sure you want to quit?\nAny unfinished backups may be corrupted or incomplete.",
+                    ButtonLeftAppearance = Wpf.Ui.Common.ControlAppearance.Danger,
+                    ButtonLeftName = "Yes",
+                    ButtonRightName = "No",
+                };
 
-                if (result == MessageBoxResult.No) e.Cancel = true;
+                result.ButtonLeftClick += (s, o) =>
+                {
+                    result.DialogResult = true;
+                    result.Close();
+                };
+                result.ButtonRightClick += (s, o) =>
+                {
+                    result.DialogResult = false;
+                    result.Close();
+                };
+
+                var res = result.ShowDialog();
+
+                if (result.DialogResult == false) return;
                 else
                 {
                     try
@@ -91,7 +113,7 @@ namespace TransferCraft
 
         private async Task ScanFiles(string filename)
         {
-            tempFileName = $"{ TEMP_FOLDER }\\" + filename.Substring(filename.IndexOf(selectedSaveName.Trim() + "_"), filename.Length - filename.IndexOf(selectedSaveName.Trim() + "_"));
+            tempFileName = $"{TEMP_FOLDER}\\" + filename.Substring(filename.IndexOf(selectedSaveName.Trim() + "_"), filename.Length - filename.IndexOf(selectedSaveName.Trim() + "_"));
 
             var fsOut = File.Create(tempFileName);
             pBar.IsIndeterminate = isBusy = true;
@@ -109,7 +131,8 @@ namespace TransferCraft
 
             if (File.Exists(tempFileName)) File.Move(tempFileName, filename);
 
-            MessageBox.Show("Export complete.");
+            CompleteDialog.Show();
+            //MessageBox.Show("Export complete.");
 
             BackupBtn.Content = "Start Backup";
         }
@@ -171,10 +194,30 @@ namespace TransferCraft
             BackupBtn.Content = "Stop";
 
             if (isBusy)
-            {               
-                var result = MessageBox.Show("Are you sure you want to cancel the current backup?\nAny unfinished backups may be corrupted or incomplete.", "Stop", MessageBoxButton.YesNo);
+            {
+                //var result = MessageBox.Show("Are you sure you want to cancel the current backup?\nAny unfinished backups may be corrupted or incomplete.", "Stop", MessageBoxButton.YesNo);
+                var result = new MessageBox()
+                {
+                    Title = "Cancel backup",
+                    Content = "Are you sure you want to cancel the current backup?\nAny unfinished backups may be corrupted or incomplete.",
+                    ButtonLeftAppearance = Wpf.Ui.Common.ControlAppearance.Danger,
+                    ButtonLeftName = "Yes",
+                    ButtonRightName = "No",
+                };
+                result.ButtonLeftClick += (s, o) =>
+                {
+                    result.DialogResult = true;
+                    result.Close();
+                };
+                result.ButtonRightClick += (s, o) => 
+                {
+                    result.DialogResult = false;
+                    result.Close(); 
+                };
 
-                if (result == MessageBoxResult.No) return;
+                var res = result.ShowDialog();
+
+                if (result.DialogResult == false) return;
                 else
                 {
                     try
@@ -199,7 +242,7 @@ namespace TransferCraft
                 string path = MC_SAVES_FOLDER + selectedSaveName;
                 if (Directory.Exists(path.Trim()))
                 {
-                    string fileNameInitial = $"{ ONEDRIVE_FOLDER }\\{ selectedSaveName }_{ Environment.MachineName }_{ DateTime.Now:MMddyy}.zip";
+                    string fileNameInitial = $"{ONEDRIVE_FOLDER}\\{selectedSaveName}_{Environment.MachineName}_{DateTime.Now:MMddyy}.zip";
                     backupFileName = fileNameInitial;
                     int count = 1;
 
@@ -227,9 +270,8 @@ namespace TransferCraft
                 }
             }
 
-          
-        }
 
+        }
         private void OpenDrive_Click(object sender, RoutedEventArgs e)
         {
             var d = Environment.GetEnvironmentVariable("OneDrive") + @"\TransferCraft\";
@@ -249,6 +291,11 @@ namespace TransferCraft
                 selectedSaveName = e.AddedItems[0].ToString();
                 BackupBtn.IsEnabled = true;
             }
+        }
+
+        private void CompleteDialog_ButtonRightClick(object sender, RoutedEventArgs e)
+        {
+            CompleteDialog.Hide();
         }
     }
 }
