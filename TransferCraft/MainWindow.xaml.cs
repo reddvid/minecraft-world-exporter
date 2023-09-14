@@ -51,26 +51,45 @@ namespace TransferCraft
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            Read();
+        }
+
+        private void Read()
+        {
             BackupBtn.IsEnabled = false;
+            OpenMCFolderBtn.IsEnabled = false;
 
-            // Check Minecraft saves directory
-            string[] folders = Directory.GetDirectories(MC_SAVES_FOLDER);
-            DirList.Items.Clear();
-
-            if (folders.Length != 0)
+            try
             {
-                foreach (var folder in folders)
+                // Check Minecraft saves directory
+                string[] folders = Directory.GetDirectories(MC_SAVES_FOLDER);
+                DirList.Items.Clear();
+
+                if (folders.Length != 0)
                 {
-                    if (File.Exists(folder + @"\level.dat"))
-                        DirList.Items.Add(folder.Replace(MC_SAVES_FOLDER, string.Empty));
+                    foreach (var folder in folders)
+                    {
+                        if (File.Exists(folder + @"\level.dat"))
+                            DirList.Items.Add(folder.Replace(MC_SAVES_FOLDER, string.Empty));
+                    }
+
+                    CreateDirectories();
+
+                    OpenMCFolderBtn.IsEnabled = true;
                 }
-
-                CreateDirectories();
+                else
+                {
+                    // TODO: Prompt for missing Minecraft folder or game, close the app
+                    ErrorDialog.Message = "No Minecraft worlds found in saves folder.";
+                    ErrorDialog.Show();
+                    OpenMCFolderBtn.IsEnabled = false;
+                }
             }
-            else
+            catch
             {
-                // TODO: Prompt for missing Minecraft folder or game, close the app
-
+                ErrorDialog.Message = "Minecraft game or folder not found.";
+                ErrorDialog.Show();
+                OpenMCFolderBtn.IsEnabled = false;
             }
         }
 
@@ -84,7 +103,8 @@ namespace TransferCraft
             else if (!String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OneDriveConsumer")))
             {
                 CreateTransferCraftDirectory(ONEDRIVECONSUMER_FOLDER);
-            } else
+            }
+            else
             {
                 CreateTransferCraftDirectory(DOCS_FOLDER);
             }
@@ -316,7 +336,7 @@ namespace TransferCraft
             }
             else if (!String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OneDriveConsumer")))
             {
-                path = Environment.GetEnvironmentVariable("OneDrive") + @"\TransferCraft\";
+                path = Environment.GetEnvironmentVariable("OneDriveConsumer") + @"\TransferCraft\";
             }
             else
             {
@@ -342,7 +362,12 @@ namespace TransferCraft
 
         private void CompleteDialog_ButtonRightClick(object sender, RoutedEventArgs e)
         {
-            CompleteDialog.Hide();
+            (sender as Dialog).Hide();
+        }
+
+        private void Refresh_Click(object sender, RoutedEventArgs e)
+        {
+            Read();
         }
     }
 }
