@@ -13,5 +13,12 @@ namespace TransferCraft
     /// </summary>
     public partial class App : Application
     {
+        public App()
+        {
+            FrameworkElement.StyleProperty.OverrideMetadata(typeof(Window), new FrameworkPropertyMetadata
+            {
+                DefaultValue = FindResource(typeof(Window))
+            });
+        }
     }
 }

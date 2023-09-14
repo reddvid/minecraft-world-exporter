@@ -30,6 +30,8 @@ namespace TransferCraft
     {
         string MC_SAVES_FOLDER = Environment.GetEnvironmentVariable("AppData") + @"\.minecraft\saves\";
         string ONEDRIVE_FOLDER = Environment.GetEnvironmentVariable("OneDrive") + @"\TransferCraft\";
+        string ONEDRIVECONSUMER_FOLDER = Environment.GetEnvironmentVariable("OneDriveConsumer") + @"\TransferCraft\";
+        string DOCS_FOLDER = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\TransferCraft\";
         string TEMP_FOLDER = Environment.GetEnvironmentVariable("Temp");
 
         bool isBusy;
@@ -43,6 +45,8 @@ namespace TransferCraft
             InitializeComponent();
 
             Loaded += MainWindow_Loaded;
+
+            Debug.WriteLine(DOCS_FOLDER);
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -57,13 +61,40 @@ namespace TransferCraft
             {
                 foreach (var folder in folders)
                 {
-                    DirList.Items.Add(folder.Replace(MC_SAVES_FOLDER, string.Empty));
+                    if (File.Exists(folder + @"\level.dat"))
+                        DirList.Items.Add(folder.Replace(MC_SAVES_FOLDER, string.Empty));
                 }
+
+                CreateDirectories();
             }
             else
             {
                 // TODO: Prompt for missing Minecraft folder or game, close the app
+
             }
+        }
+
+        private void CreateDirectories()
+        {
+            // Check if %OneDrive% exists
+            if (!String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OneDrive")))
+            {
+                CreateTransferCraftDirectory(ONEDRIVE_FOLDER);
+            }
+            else if (!String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OneDriveConsumer")))
+            {
+                CreateTransferCraftDirectory(ONEDRIVECONSUMER_FOLDER);
+            } else
+            {
+                CreateTransferCraftDirectory(DOCS_FOLDER);
+            }
+        }
+
+        private void CreateTransferCraftDirectory(string folderPath)
+        {
+            if (Directory.Exists(folderPath)) return;
+
+            Directory.CreateDirectory(folderPath);
         }
 
         protected override void OnClosing(CancelEventArgs e)
@@ -246,7 +277,22 @@ namespace TransferCraft
                 string path = MC_SAVES_FOLDER + selectedSaveName;
                 if (Directory.Exists(path.Trim()))
                 {
-                    string fileNameInitial = $"{ONEDRIVE_FOLDER}\\{selectedSaveName}_{Environment.MachineName}_{DateTime.Now:MMddyy}.zip";
+                    string fileNameInitial = string.Empty;
+
+                    // If OneDrive is not found, save in Documents folder
+                    if (!String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OneDrive")))
+                    {
+                        fileNameInitial = $"{ONEDRIVE_FOLDER}\\{selectedSaveName}_{Environment.MachineName}_{DateTime.Now:MMddyy}.zip";
+                    }
+                    else if (!String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OneDriveConsumer")))
+                    {
+                        fileNameInitial = $"{ONEDRIVECONSUMER_FOLDER}\\{selectedSaveName}_{Environment.MachineName}_{DateTime.Now:MMddyy}.zip";
+                    }
+                    else
+                    {
+                        fileNameInitial = $"{DOCS_FOLDER}\\{selectedSaveName}_{Environment.MachineName}_{DateTime.Now:MMddyy}.zip";
+                    }
+
                     backupFileName = fileNameInitial;
                     int count = 1;
 
@@ -255,31 +301,28 @@ namespace TransferCraft
                         backupFileName = GenerateFileName(fileNameInitial, count++);
                     }
 
-                    try
-                    {
-                        if (Directory.Exists(ONEDRIVE_FOLDER))
-                        {
-                            await ScanFiles(backupFileName);
-                        }
-                        else
-                        {
-                            Directory.CreateDirectory(ONEDRIVE_FOLDER);
-                            await ScanFiles(backupFileName);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine(ex.Message);
-                    }
+                    await ScanFiles(backupFileName);
                 }
             }
-
-
         }
-        private  void OpenDrive_Click(object sender, RoutedEventArgs e)
+
+        private void OpenDrive_Click(object sender, RoutedEventArgs e)
         {
-            var d = Environment.GetEnvironmentVariable("OneDrive") + @"\TransferCraft\";
-            Process.Start("explorer.exe", d);
+            string path = string.Empty;
+
+            if (!String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OneDrive")))
+            {
+                path = Environment.GetEnvironmentVariable("OneDrive") + @"\TransferCraft\";
+            }
+            else if (!String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OneDriveConsumer")))
+            {
+                path = Environment.GetEnvironmentVariable("OneDrive") + @"\TransferCraft\";
+            }
+            else
+            {
+                path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\TransferCraft\";
+            }
+            Process.Start("explorer.exe", path);
         }
 
         private void OpenSaves_Click(object sender, RoutedEventArgs e)

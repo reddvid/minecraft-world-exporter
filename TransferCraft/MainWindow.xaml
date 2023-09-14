@@ -9,9 +9,13 @@
 	Title="TransferCraft"
 	Width="680"
 	Height="400"
+	Background="{ui:ThemeResource ApplicationBackgroundBrush}"
 	ExtendsContentIntoTitleBar="True"
+	FontFamily="Segoe UI Variable Display"
 	ResizeMode="NoResize"
 	WindowBackdropType="Mica"
+	WindowCornerPreference="Round"
+	WindowStartupLocation="CenterScreen"
 	mc:Ignorable="d">
 
 	<Grid>
